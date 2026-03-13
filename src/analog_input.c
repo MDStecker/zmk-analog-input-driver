@@ -514,4 +514,4 @@ static const struct sensor_driver_api analog_input_driver_api = {
 DT_INST_FOREACH_STATUS_OKAY(ANALOG_INPUT_DEFINE)
 
 
-DT_INST_FOREACH_STATUS_OKAY(ANALOG_INPUT_DEFINE)
+
