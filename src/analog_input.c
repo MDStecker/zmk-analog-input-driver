@@ -6,6 +6,7 @@
 
 #define DT_DRV_COMPAT zmk_analog_input
 #define ANALOG_AVG_SAMPLES 10
+#define ANALOG_MAX_CHANNELS 4
 
 #include <zephyr/kernel.h>
 #include <zephyr/sys/byteorder.h>
@@ -20,25 +21,29 @@ LOG_MODULE_REGISTER(ANALOG_INPUT, CONFIG_ANALOG_INPUT_LOG_LEVEL);
 
 #include <zmk/drivers/analog_input.h>
 
-static int32_t analog_avg_push(struct analog_input_data *data, uint8_t ch, int32_t sample) {
-    uint8_t idx = data->avg_index[ch];
-    uint8_t count = data->avg_count[ch];
-    int base = ch * ANALOG_AVG_SAMPLES;
+static int32_t avg_buf[ANALOG_MAX_CHANNELS][ANALOG_AVG_SAMPLES];
+static int32_t avg_sum[ANALOG_MAX_CHANNELS];
+static uint8_t avg_index[ANALOG_MAX_CHANNELS];
+static uint8_t avg_count[ANALOG_MAX_CHANNELS];
 
-    if (count < ANALOG_AVG_SAMPLES) {
-        data->avg_buf[base + idx] = sample;
-        data->avg_sum[ch] += sample;
-        data->avg_count[ch]++;
+static int32_t analog_avg_push(uint8_t ch, int32_t sample) {
+    uint8_t idx = avg_index[ch];
+
+    if (avg_count[ch] < ANALOG_AVG_SAMPLES) {
+        avg_buf[ch][idx] = sample;
+        avg_sum[ch] += sample;
+        avg_count[ch]++;
     } else {
-        data->avg_sum[ch] -= data->avg_buf[base + idx];
-        data->avg_buf[base + idx] = sample;
-        data->avg_sum[ch] += sample;
+        avg_sum[ch] -= avg_buf[ch][idx];
+        avg_buf[ch][idx] = sample;
+        avg_sum[ch] += sample;
     }
 
-    data->avg_index[ch] = (idx + 1) % ANALOG_AVG_SAMPLES;
+    avg_index[ch] = (idx + 1) % ANALOG_AVG_SAMPLES;
 
-    return data->avg_sum[ch] / data->avg_count[ch];
+    return avg_sum[ch] / avg_count[ch];
 }
+
 
 static int analog_input_report_data(const struct device *dev) {
     struct analog_input_data *data = dev->data;
